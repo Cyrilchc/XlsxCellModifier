@@ -3,17 +3,17 @@
 # Chemin des fichiers xlsx
 $path = "C:\temp\generatedXlsx"
 
-# Coordonnées de la cellule à copier
-# Pour rechercher plutôt par texte et non pas par coordonnées :
-# https://stackoverflow.com/a/59408529
-$abscisse = 3
-$ordonnee = 5
+$coorToCopy = @(
+    "A1"
+    "H5"
+    "R9"
+    "L11"
+)
 
 # Chemin du fichier xlsx à peupler
 $targetPath = "C:\temp\target\target.xlsx"
 
-# Coordonnées des cellules à peupler
-$targetAbscisse = 1
+# à partir de quelle ligne commencer à copier
 $targetOrdonnee = 1
 
 # Feuille du fichier cible à sélectionner
@@ -60,12 +60,42 @@ foreach($file in Get-ChildItem -Path $path)
         $workbook = $excel.Workbooks.Open($file.FullName)
         $worksheet = $workbook.WorkSheets.item($sheet)
         [void]$worksheet.Activate()
+        
+        # Il faut changer de colonne à chaque itération pour ne pas écraser le précédent
+        $column = 1
+        foreach($cell in $coorToCopy)
+        {
+            $tries = 0 # Cette partie du code ne semble pas très fiable, je lui donne 5 tentatives pour réussir
+            while ($tries -lt 5)
+            {
+                try
+                {
+                    # Sélection de la cellule à copier
+                    $range = $worksheet.Range($cell)
 
-        # Sélection de la cellule à copier
-        $targetValue = $worksheet.Cells.Item($ordonnee, $abscisse).Value2
+                    # Copie la cellule
+                    $range.Copy() | Out-Null
 
-        # Copie de la valeur dans le fichier cible
-        $worksheetTarget.Cells.Item($targetOrdonnee, $targetAbscisse) = $targetValue
+                    # Sélectionne la cellule cible
+                    $Range = $worksheetTarget.Cells($targetOrdonnee, $column)
+
+                    # Colle la cellule dans la cible
+                    $worksheetTarget.Paste($range)
+
+                    $column++
+
+                    $tries = 5 # L'opération a réussi, on annule les essais
+                }
+                catch
+                {
+                    $tries++
+                    if($tries -eq 5)
+                    {
+                        throw $_
+                    }
+                }
+            }
+        }
 
         # Libération des ressources du fichier courant
         if(!$keepOpened)
